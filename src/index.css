@@ -1,0 +1,47 @@
+@import "tailwindcss";
+
+@theme {
+  --color-cream: #FDF6EC;
+  --color-cream-dark: #F5E6D0;
+  --color-coffee: #4A2C2A;
+  --color-coffee-light: #6B4226;
+  --color-coffee-medium: #8B5E3C;
+  --color-espresso: #2C1810;
+  --color-latte: #D4A574;
+  --color-mocha: #967259;
+  --color-caramel: #C68B59;
+  --color-success: #4CAF50;
+  --color-danger: #E74C3C;
+}
+
+body {
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  margin: 0;
+}
+
+.fade-in {
+  animation: fadeIn 0.3s ease-in;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.stamp-pop {
+  animation: stampPop 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+@keyframes stampPop {
+  0% { transform: scale(0); }
+  100% { transform: scale(1); }
+}
+
+.pulse-slow {
+  animation: pulseSlow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes pulseSlow {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
