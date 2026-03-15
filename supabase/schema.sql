@@ -79,6 +79,7 @@ ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE history ENABLE ROW LEVEL SECURITY;
 
 -- Drop existing policies to avoid conflicts
+DROP POLICY IF EXISTS "Users can insert own profile" ON profiles;
 DROP POLICY IF EXISTS "Users can view own profile" ON profiles;
 DROP POLICY IF EXISTS "Admins can view all profiles" ON profiles;
 DROP POLICY IF EXISTS "Users can update own profile" ON profiles;
@@ -86,6 +87,11 @@ DROP POLICY IF EXISTS "Admins can update any profile" ON profiles;
 DROP POLICY IF EXISTS "Users can view own history" ON history;
 DROP POLICY IF EXISTS "Admins can view all history" ON history;
 DROP POLICY IF EXISTS "Admins can insert history" ON history;
+
+-- Profiles: users can insert their own profile (fallback if trigger fails)
+CREATE POLICY "Users can insert own profile"
+  ON profiles FOR INSERT
+  WITH CHECK (auth.uid() = id);
 
 -- Profiles: users can read their own profile
 CREATE POLICY "Users can view own profile"

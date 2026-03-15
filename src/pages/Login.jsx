@@ -30,6 +30,10 @@ export default function Login() {
         if (error) {
           // If the trigger failed to create the profile, try creating it manually
           if (error.message.includes('Database error') && signUpData?.user) {
+            // Set the session so RLS auth.uid() works for the INSERT policy
+            if (signUpData.session) {
+              await supabase.auth.setSession(signUpData.session)
+            }
             const { error: profileError } = await supabase
               .from('profiles')
               .upsert({
@@ -40,6 +44,21 @@ export default function Login() {
             if (profileError) throw new Error('Error creando perfil. Verifica que el schema SQL se haya ejecutado en Supabase.')
           } else {
             throw error
+          }
+        }
+        // Even if signup succeeded, ensure profile exists (trigger may have silently failed)
+        if (signUpData?.user && !error) {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('id')
+            .eq('id', signUpData.user.id)
+            .single()
+          if (!profile && signUpData.session) {
+            await supabase.from('profiles').upsert({
+              id: signUpData.user.id,
+              email,
+              full_name: fullName,
+            }, { onConflict: 'id' })
           }
         }
         setMessage('Cuenta creada. Revisa tu correo para confirmar o inicia sesión.')
