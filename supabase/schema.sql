@@ -3,6 +3,9 @@
 -- Execute this SQL in Supabase SQL Editor
 -- ============================================================
 
+-- 0. Required extensions
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
 -- 1. Custom type for user roles
 CREATE TYPE user_role AS ENUM ('admin', 'customer');
 

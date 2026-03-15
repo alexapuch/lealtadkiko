@@ -20,14 +20,28 @@ export default function Login() {
 
     try {
       if (isRegister) {
-        const { error } = await supabase.auth.signUp({
+        const { data: signUpData, error } = await supabase.auth.signUp({
           email,
           password,
           options: {
             data: { full_name: fullName },
           },
         })
-        if (error) throw error
+        if (error) {
+          // If the trigger failed to create the profile, try creating it manually
+          if (error.message.includes('Database error') && signUpData?.user) {
+            const { error: profileError } = await supabase
+              .from('profiles')
+              .upsert({
+                id: signUpData.user.id,
+                email,
+                full_name: fullName,
+              }, { onConflict: 'id' })
+            if (profileError) throw new Error('Error creando perfil. Verifica que el schema SQL se haya ejecutado en Supabase.')
+          } else {
+            throw error
+          }
+        }
         setMessage('Cuenta creada. Revisa tu correo para confirmar o inicia sesión.')
       } else {
         const { error } = await supabase.auth.signInWithPassword({
