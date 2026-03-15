@@ -12,6 +12,22 @@ export default function Login() {
   const [message, setMessage] = useState('')
   const navigate = useNavigate()
 
+  async function createProfileViaAPI(userId, userEmail, name) {
+    try {
+      const res = await fetch('/api/create-profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: userId, email: userEmail, full_name: name }),
+      })
+      if (!res.ok) {
+        const data = await res.json()
+        console.error('Profile creation API error:', data.error)
+      }
+    } catch (err) {
+      console.error('Profile creation fetch error:', err)
+    }
+  }
+
   async function handleSubmit(e) {
     e.preventDefault()
     setLoading(true)
@@ -28,38 +44,16 @@ export default function Login() {
           },
         })
         if (error) {
-          // If the trigger failed to create the profile, try creating it manually
+          // If the trigger failed, create profile via serverless API (uses service_role)
           if (error.message.includes('Database error') && signUpData?.user) {
-            // Set the session so RLS auth.uid() works for the INSERT policy
-            if (signUpData.session) {
-              await supabase.auth.setSession(signUpData.session)
-            }
-            const { error: profileError } = await supabase
-              .from('profiles')
-              .upsert({
-                id: signUpData.user.id,
-                email,
-                full_name: fullName,
-              }, { onConflict: 'id' })
-            if (profileError) throw new Error('Error creando perfil. Verifica que el schema SQL se haya ejecutado en Supabase.')
+            await createProfileViaAPI(signUpData.user.id, email, fullName)
           } else {
             throw error
           }
         }
         // Even if signup succeeded, ensure profile exists (trigger may have silently failed)
         if (signUpData?.user && !error) {
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('id')
-            .eq('id', signUpData.user.id)
-            .single()
-          if (!profile && signUpData.session) {
-            await supabase.from('profiles').upsert({
-              id: signUpData.user.id,
-              email,
-              full_name: fullName,
-            }, { onConflict: 'id' })
-          }
+          await createProfileViaAPI(signUpData.user.id, email, fullName)
         }
         setMessage('Cuenta creada. Revisa tu correo para confirmar o inicia sesión.')
       } else {
