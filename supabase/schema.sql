@@ -1,16 +1,20 @@
 -- ============================================================
 -- Kiko Coffee - Loyalty Program Database Schema
 -- Execute this SQL in Supabase SQL Editor
+-- Safe to re-run (idempotent)
 -- ============================================================
 
 -- 0. Required extensions
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 -- 1. Custom type for user roles
-CREATE TYPE user_role AS ENUM ('admin', 'customer');
+DO $$ BEGIN
+  CREATE TYPE user_role AS ENUM ('admin', 'customer');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- 2. Profiles table
-CREATE TABLE profiles (
+CREATE TABLE IF NOT EXISTS profiles (
   id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   email TEXT NOT NULL,
   full_name TEXT NOT NULL DEFAULT '',
@@ -22,7 +26,7 @@ CREATE TABLE profiles (
 );
 
 -- 3. History / audit table
-CREATE TABLE history (
+CREATE TABLE IF NOT EXISTS history (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   profile_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
   action TEXT NOT NULL CHECK (action IN ('stamp_added', 'reward_redeemed')),
@@ -33,9 +37,9 @@ CREATE TABLE history (
 );
 
 -- 4. Indexes
-CREATE INDEX idx_profiles_qr_token ON profiles(qr_token);
-CREATE INDEX idx_history_profile_id ON history(profile_id);
-CREATE INDEX idx_history_created_at ON history(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_profiles_qr_token ON profiles(qr_token);
+CREATE INDEX IF NOT EXISTS idx_history_profile_id ON history(profile_id);
+CREATE INDEX IF NOT EXISTS idx_history_created_at ON history(created_at DESC);
 
 -- 5. Auto-update updated_at
 CREATE OR REPLACE FUNCTION update_updated_at()
@@ -46,6 +50,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS profiles_updated_at ON profiles;
 CREATE TRIGGER profiles_updated_at
   BEFORE UPDATE ON profiles
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();
@@ -64,6 +69,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION handle_new_user();
@@ -71,6 +77,15 @@ CREATE TRIGGER on_auth_user_created
 -- 7. Row Level Security (RLS)
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE history ENABLE ROW LEVEL SECURITY;
+
+-- Drop existing policies to avoid conflicts
+DROP POLICY IF EXISTS "Users can view own profile" ON profiles;
+DROP POLICY IF EXISTS "Admins can view all profiles" ON profiles;
+DROP POLICY IF EXISTS "Users can update own profile" ON profiles;
+DROP POLICY IF EXISTS "Admins can update any profile" ON profiles;
+DROP POLICY IF EXISTS "Users can view own history" ON history;
+DROP POLICY IF EXISTS "Admins can view all history" ON history;
+DROP POLICY IF EXISTS "Admins can insert history" ON history;
 
 -- Profiles: users can read their own profile
 CREATE POLICY "Users can view own profile"
